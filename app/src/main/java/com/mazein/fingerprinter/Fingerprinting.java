@@ -45,6 +45,8 @@ public class Fingerprinting extends AppCompatActivity
     private static final String LOG_TAG = "FP";
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
     private static final int PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
+    private static boolean WIFI_ENABLED = true;
+    private static boolean MAGNETIC_ENABLED = false;
 
     private WebView mapWebView;
     private ProgressDialog mProgressDialog;
@@ -119,7 +121,7 @@ public class Fingerprinting extends AppCompatActivity
         WebSettings mapWebSettings = mapWebView.getSettings();
         mapWebSettings.setJavaScriptEnabled(true);
         mapWebView.addJavascriptInterface(new WebAppInterface(this), "Android");
-        mapWebView.loadUrl("file:///android_asset/nu_f/index.html");
+        mapWebView.loadUrl("file:///android_asset/floor_maps/F.html");
     }
 
     @Override
@@ -183,53 +185,91 @@ public class Fingerprinting extends AppCompatActivity
             outFile.delete();
             Toast.makeText(Fingerprinting.this, "File Deleted!", Toast.LENGTH_SHORT).show();
         }
+        else if (id == R.id.f_menu_button)
+        {
+            mapWebView.loadUrl("file:///android_asset/floor_maps/F.html");
 
+        }
+        else if (id == R.id.s12_menu_button)
+        {
+            mapWebView.loadUrl("file:///android_asset/floor_maps/S12.html");
+        }
+        else if (id == R.id.enable_magnetic)
+        {
+            if (item.isChecked())
+            {
+                item.setChecked(false);
+                MAGNETIC_ENABLED = false;
+            }
+            else if (!item.isChecked())
+            {
+                item.setChecked(true);
+                MAGNETIC_ENABLED = true;
+            }
+        }
+
+        else if (id == R.id.enable_wifi)
+        {
+            if (item.isChecked())
+            {
+                item.setChecked(false);
+                WIFI_ENABLED = false;
+            }
+            else if (!item.isChecked())
+            {
+                item.setChecked(true);
+                WIFI_ENABLED = true;
+            }
+        }
         return false;
     }
 
-    private void makePostRequest(JSONObject finger_print) throws IOException
+    private void makePostRequest(ArrayList<JSONObject> allScanResults) throws IOException
     {
         try
         {
             //final JSONobject which would be serialized to be sent to the server including finger_print JSONObject
-            JSONObject fingerprintJson = new JSONObject();
-            fingerprintJson.put("commit", "Create Finger print");
-            fingerprintJson.put("action", "create");
-            fingerprintJson.put("controller", "finger_prints");
-            fingerprintJson.put("finger_print", finger_print);
-
-            HttpURLConnection con = (HttpURLConnection) (new URL("https://limitless-depths-3645.herokuapp.com/finger_prints").openConnection());
-            con.setDoOutput(true);
-            con.setDoInput(true);
-            con.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            con.setRequestProperty("Accept", "application/json");
-            con.setRequestMethod("POST");
-
-            Log.d("JSON_TO_SERVER", finger_print.toString());
-            OutputStreamWriter wr = new OutputStreamWriter(con.getOutputStream());
-            wr.write(fingerprintJson.toString());
-            Log.d("FingerPrintJson", fingerprintJson.toString());
-            wr.flush();
-            StringBuilder sb = new StringBuilder();
-            int HttpResult = con.getResponseCode();
-            if (HttpResult == HttpURLConnection.HTTP_OK)
+            for (JSONObject finger_print : allScanResults)
             {
-                BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"));
-                String line;
-                while ((line = br.readLine()) != null)
+                JSONObject fingerprintJson = new JSONObject();
+                fingerprintJson.put("commit", "Create Finger print");
+                fingerprintJson.put("action", "create");
+                fingerprintJson.put("controller", "finger_prints");
+                fingerprintJson.put("finger_print", finger_print);
+
+                HttpURLConnection con = (HttpURLConnection) (new URL("https://mazein.herokuapp.com/finger_prints.json").openConnection());
+                con.setDoOutput(true);
+                con.setDoInput(true);
+                con.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                con.setRequestProperty("Accept", "application/json");
+                con.setRequestMethod("POST");
+
+                Log.d("JSON_TO_SERVER", finger_print.toString());
+                OutputStreamWriter wr = new OutputStreamWriter(con.getOutputStream());
+                wr.write(fingerprintJson.toString());
+                Log.d("FingerPrintJson", fingerprintJson.toString());
+                wr.flush();
+                StringBuilder sb = new StringBuilder();
+                int HttpResult = con.getResponseCode();
+                if (HttpResult == HttpURLConnection.HTTP_OK)
                 {
-                    sb.append(line + "\n");
+                    BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"));
+                    String line;
+                    while ((line = br.readLine()) != null)
+                    {
+                        sb.append(line + "\n");
+                    }
+
+                    br.close();
+                    Log.i("JSON_TO_SERVER", "Response: " + sb.toString());
+//                    Toast.makeText(Fingerprinting.this, "Server Response: OK", Toast.LENGTH_SHORT).show();
+
                 }
-
-                br.close();
-                Log.i("JSON_TO_SERVER", "Response: " + sb.toString());
-                Toast.makeText(Fingerprinting.this, "Server Response: OK", Toast.LENGTH_SHORT).show();
-
-            }
-            else
-            {
-                System.out.println(con.getResponseMessage());
-//                Toast.makeText(Fingerprinting.this, "Server Response: ERR", Toast.LENGTH_SHORT).show();
+                else
+                {
+                    System.out.println(con.getResponseMessage());
+                    //                Toast.makeText(Fingerprinting.this, "Server Response: ERR", Toast.LENGTH_SHORT).show();
+                }
             }
         } catch (JSONException e)
         {
@@ -267,52 +307,56 @@ public class Fingerprinting extends AppCompatActivity
         }
 
         @JavascriptInterface
-        public void initializeWifiScan(final float startX, final float startY) {
-
-            mProgressDialog = ProgressDialog.show(Fingerprinting.this, "Wifi Scan",
-                    "Scanning at: \n" + String.valueOf(startX) + ", " + String.valueOf(startY), true);
+        public void initializeWifiScan(final String place_id, final float startX, final float startY)
+        {
+            int scanNumber = 1;
+            mProgressDialog = ProgressDialog.show(Fingerprinting.this, "WiFi Scan",
+                    "Scan " + String.valueOf(scanNumber) + " at: \n" + String.valueOf(startX) + ", " + String.valueOf(startY), true);
 
             mIntentFilter = new IntentFilter();
 
             mIntentFilter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
 
-            mBroadcastReceiver = new BroadcastReceiver() {
+            mBroadcastReceiver = new BroadcastReceiver()
+            {
 
                 @Override
-                public void onReceive(Context context, Intent intent) {
+                public void onReceive(Context context, Intent intent)
+                {
                     Log.d("WLAN", "Receiving WLAN Scan results");
 
                     mScanResults = (ArrayList<ScanResult>) mWifiManager
                             .getScanResults();
 
-                    for(ScanResult result : mScanResults)
-                    {
-                        //Adding stuff to the JSON object finger_print at first
-                        JSONObject finger_print = new JSONObject();
-                        try
+                    ArrayList<JSONObject> allScanResults = new ArrayList<>();
+                    for (ScanResult result : mScanResults)
                         {
-                            finger_print.put("place_id", "1");
-                            finger_print.put("xcoord", startX);
-                            finger_print.put("ycoord", startY);
-                            finger_print.put("BSSID", result.BSSID);
-                            finger_print.put("SSID", result.SSID);
-                            finger_print.put("RSSI", result.level);
-                            finger_print.put("SD", "");
-                            finger_print.put("mac", result.BSSID);
-                        } catch (JSONException e)
-                        {
-                            e.printStackTrace();
+                            //Adding stuff to the JSON object finger_print at first
+                            JSONObject finger_print = new JSONObject();
+                            try
+                            {
+                                finger_print.put("place_id", place_id);
+                                finger_print.put("xcoord", startX);
+                                finger_print.put("ycoord", startY);
+                                finger_print.put("BSSID", result.BSSID);
+                                finger_print.put("SSID", result.SSID);
+                                finger_print.put("RSSI", result.level);
+                                finger_print.put("SD", "");
+                                finger_print.put("mac", result.BSSID);
+                                allScanResults.add(finger_print);
+                            } catch (JSONException e)
+                            {
+                                e.printStackTrace();
+                            }
+                            Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
+                            //osw.write("{" + startX + "," + startY + ": " + result.toString());
+                            saveFile(context, finger_print.toString());
                         }
-                        Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
-                        //osw.write("{" + startX + "," + startY + ": " + result.toString());
-                        saveFile(context, finger_print.toString());
-                        new SendToServer().execute(finger_print);
-                    }
-
-                    mProgressDialog.dismiss();
+                    new SendToServer().execute(allScanResults);
+                    mWifiManager.startScan();
                     unregisterReceiver(mBroadcastReceiver);
                     //saveResults.run();
-                }
+                    }
             };
 
             registerReceiver(mBroadcastReceiver, mIntentFilter);
@@ -355,11 +399,11 @@ public class Fingerprinting extends AppCompatActivity
 
     }
 
-    class SendToServer extends AsyncTask<JSONObject, Void, Void>
+    class SendToServer extends AsyncTask<ArrayList<JSONObject>, Void, Void>
     {
 
         @Override
-        protected Void doInBackground(JSONObject... params)
+        protected Void doInBackground(ArrayList<JSONObject>... params)
         {
             try
             {
@@ -374,7 +418,8 @@ public class Fingerprinting extends AppCompatActivity
         @Override
         protected void onPostExecute(Void v)
         {
-            //Toast.makeText(Fingerprinting.this, "Sent to Server!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(Fingerprinting.this, "Sent to Server!", Toast.LENGTH_SHORT).show();
+            mProgressDialog.dismiss();
         }
 
     }

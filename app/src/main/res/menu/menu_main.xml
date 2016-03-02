@@ -3,6 +3,20 @@
       xmlns:tools="http://schemas.android.com/tools"
       tools:context=".Fingerprinting">
     <item
+        android:id="@+id/f_menu_button"
+        android:title="Load F Map"
+        app:showAsAction="never">
+
+    </item>
+
+    <item
+        android:id="@+id/s12_menu_button"
+        android:title="Load S12 Map"
+        app:showAsAction="never">
+
+    </item>
+
+    <item
         android:id="@+id/action_settings"
         android:orderInCategory="100"
         android:title="@string/action_settings"
@@ -14,5 +28,15 @@
     <item
         android:id="@+id/send_fingerprints"
         android:title="Email Fingerprints"
+        />
+    <item
+        android:id="@+id/enable_magnetic"
+        android:checkable="true"
+        android:title="Enable Magnetic"
+        />
+    <item
+        android:id="@+id/enable_wifi"
+        android:checkable="true"
+        android:title="Enable WiFi"
         />
 </menu>
