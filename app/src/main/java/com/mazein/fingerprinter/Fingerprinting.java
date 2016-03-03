@@ -45,8 +45,11 @@ public class Fingerprinting extends AppCompatActivity
     private static final String LOG_TAG = "FP";
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
     private static final int PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
-    private static boolean WIFI_ENABLED = true;
+    private static boolean WIFI_ENABLED = false;
     private static boolean MAGNETIC_ENABLED = false;
+    private static boolean SERVER_ENABLED = false;
+    private static boolean FILE_WRITE_ENABLED = false;
+    private static String ACTIVE_FILE_NAME = "log.txt";
 
     private WebView mapWebView;
     private ProgressDialog mProgressDialog;
@@ -80,7 +83,8 @@ public class Fingerprinting extends AppCompatActivity
     {
         super.onCreate(savedInstanceState);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+        {
             // Android M Permission check
             if (this.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 final AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -132,40 +136,57 @@ public class Fingerprinting extends AppCompatActivity
         return true;
     }
 
+    private boolean sendFileToServer()
+    {
+        File dir = new File(Environment.getExternalStorageDirectory(), "MazeIn Fingerprints");
+        if (!dir.exists())
+        {
+            dir.mkdirs();
+            Toast.makeText(Fingerprinting.this, "Folder doesn't exist!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        File outFile = new File(dir, ACTIVE_FILE_NAME);
+        if (!outFile.exists())
+        {
+            Toast.makeText(Fingerprinting.this, "File missing!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        Uri U = Uri.fromFile(outFile);
+        Intent i = new Intent(Intent.ACTION_SEND);
+        i.setType("text/plain");
+        i.putExtra(Intent.EXTRA_STREAM, U);
+        Toast.makeText(Fingerprinting.this, "Sending " + ACTIVE_FILE_NAME, Toast.LENGTH_SHORT).show();
+        startActivity(Intent.createChooser(i, "Email:"));
+        return false;
+    }
+
+    private boolean resetFingerprintsFile()
+    {
+        File dir = new File(Environment.getExternalStorageDirectory(), "MazeIn Fingerprints");
+        if (!dir.exists())
+        {
+            dir.mkdirs();
+            Toast.makeText(Fingerprinting.this, "Folder doesn't exist!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        File outFile = new File(dir, ACTIVE_FILE_NAME);
+        if (!outFile.exists())
+        {
+            Toast.makeText(Fingerprinting.this, "File missing!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        outFile.delete();
+        Toast.makeText(Fingerprinting.this, ACTIVE_FILE_NAME + " Deleted!", Toast.LENGTH_SHORT).show();
+        return false;
+    }
     @Override
     public boolean onOptionsItemSelected(MenuItem item)
     {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings)
+        if (id == R.id.send_fingerprints)
         {
-            Toast.makeText(this, "Settings not available yet", Toast.LENGTH_SHORT).show();
-        }
-        else if(id == R.id.send_fingerprints)
-        {
-            File dir = new File(Environment.getExternalStorageDirectory(), "MazeIn Fingerprints");
-            if(!dir.exists())
-            {
-                dir.mkdirs();
-                Toast.makeText(Fingerprinting.this, "Folder doesn't exist!", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-            File outFile = new File(dir, "fingerprintData.txt");
-            if(!outFile.exists())
-            {
-                Toast.makeText(Fingerprinting.this, "File missing!", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-            Uri U = Uri.fromFile(outFile);
-            Intent i = new Intent(Intent.ACTION_SEND);
-            i.setType("text/plain");
-            i.putExtra(Intent.EXTRA_STREAM, U);
-            Toast.makeText(Fingerprinting.this, "Sending File...", Toast.LENGTH_SHORT).show();
-            startActivity(Intent.createChooser(i,"Email:"));
+            return sendFileToServer();
         }
         else if(id == R.id.reset_fingerprints)
         {
@@ -176,50 +197,56 @@ public class Fingerprinting extends AppCompatActivity
                 Toast.makeText(Fingerprinting.this, "Folder doesn't exist!", Toast.LENGTH_SHORT).show();
                 return false;
             }
-            File outFile = new File(dir, "fingerprintData.txt");
+            File outFile = new File(dir, ACTIVE_FILE_NAME);
             if(!outFile.exists())
             {
                 Toast.makeText(Fingerprinting.this, "File missing!", Toast.LENGTH_SHORT).show();
                 return false;
             }
             outFile.delete();
-            Toast.makeText(Fingerprinting.this, "File Deleted!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(Fingerprinting.this, ACTIVE_FILE_NAME + " Deleted!", Toast.LENGTH_SHORT).show();
         }
         else if (id == R.id.f_menu_button)
         {
             mapWebView.loadUrl("file:///android_asset/floor_maps/F.html");
-
+            ACTIVE_FILE_NAME = "F_fingerprints";
+            Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME, Toast.LENGTH_SHORT).show();
         }
         else if (id == R.id.s12_menu_button)
         {
             mapWebView.loadUrl("file:///android_asset/floor_maps/S12.html");
+            ACTIVE_FILE_NAME = "S12_fingerprints";
+            Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME,
+                    Toast.LENGTH_SHORT).show();
         }
         else if (id == R.id.enable_magnetic)
         {
-            if (item.isChecked())
-            {
-                item.setChecked(false);
-                MAGNETIC_ENABLED = false;
-            }
-            else if (!item.isChecked())
-            {
-                item.setChecked(true);
-                MAGNETIC_ENABLED = true;
-            }
+            item.setChecked(!item.isChecked());
+            MAGNETIC_ENABLED = item.isChecked();
+            Toast.makeText(Fingerprinting.this, "Magnetic Fingerprints: " + Boolean.toString(MAGNETIC_ENABLED)
+                    , Toast.LENGTH_SHORT).show();
         }
 
         else if (id == R.id.enable_wifi)
         {
-            if (item.isChecked())
-            {
-                item.setChecked(false);
-                WIFI_ENABLED = false;
-            }
-            else if (!item.isChecked())
-            {
-                item.setChecked(true);
-                WIFI_ENABLED = true;
-            }
+            item.setChecked(!item.isChecked());
+            WIFI_ENABLED = item.isChecked();
+            Toast.makeText(Fingerprinting.this, "WiFi Fingerprints: " + Boolean.toString(WIFI_ENABLED)
+                    , Toast.LENGTH_SHORT).show();
+        }
+        else if (id == R.id.enable_send_to_server)
+        {
+            item.setChecked(!item.isChecked());
+            SERVER_ENABLED = item.isChecked();
+            Toast.makeText(Fingerprinting.this, "Sync with Server: " + Boolean.toString(SERVER_ENABLED)
+                    , Toast.LENGTH_SHORT).show();
+        }
+        else if (id == R.id.enable_file_write)
+        {
+            item.setChecked(!item.isChecked());
+            FILE_WRITE_ENABLED = item.isChecked();
+            Toast.makeText(Fingerprinting.this, "Writing to: " + Boolean.toString(FILE_WRITE_ENABLED)
+                    , Toast.LENGTH_SHORT).show();
         }
         return false;
     }
@@ -268,7 +295,7 @@ public class Fingerprinting extends AppCompatActivity
                 else
                 {
                     System.out.println(con.getResponseMessage());
-                    //                Toast.makeText(Fingerprinting.this, "Server Response: ERR", Toast.LENGTH_SHORT).show();
+                    //Toast.makeText(Fingerprinting.this, "Server Response: ERR", Toast.LENGTH_SHORT).show();
                 }
             }
         } catch (JSONException e)
@@ -307,6 +334,24 @@ public class Fingerprinting extends AppCompatActivity
         }
 
         @JavascriptInterface
+        public void initializeFingerprinting(final String place_id, final float startX, final float startY)
+        {
+            if (WIFI_ENABLED)
+            {
+                initializeWifiScan(place_id, startX, startY);
+            }
+            if (MAGNETIC_ENABLED)
+            {
+                initializeMagnetic(place_id, startX, startY);
+            }
+        }
+
+        public void initializeMagnetic(final String place_id, final float startX, final float startY)
+        {
+
+        }
+
+        @JavascriptInterface
         public void initializeWifiScan(final String place_id, final float startX, final float startY)
         {
             int scanNumber = 1;
@@ -335,7 +380,7 @@ public class Fingerprinting extends AppCompatActivity
                             JSONObject finger_print = new JSONObject();
                             try
                             {
-                                finger_print.put("place_id", place_id);
+                                //finger_print.put("place_id", place_id);
                                 finger_print.put("xcoord", startX);
                                 finger_print.put("ycoord", startY);
                                 finger_print.put("BSSID", result.BSSID);
@@ -350,20 +395,31 @@ public class Fingerprinting extends AppCompatActivity
                             }
                             Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
                             //osw.write("{" + startX + "," + startY + ": " + result.toString());
-                            saveFile(context, finger_print.toString());
+                            if (FILE_WRITE_ENABLED)
+                            {
+                                saveFile(context, finger_print.toString(), "wifi");
+                            }
                         }
-                    new SendToServer().execute(allScanResults);
+                    if (SERVER_ENABLED)
+                    {
+                        new SendToServer().execute(allScanResults);
+                    }
+                    else
+                    {
+                        mProgressDialog.dismiss();
+                    }
                     mWifiManager.startScan();
                     unregisterReceiver(mBroadcastReceiver);
                     //saveResults.run();
-                    }
+                }
             };
 
             registerReceiver(mBroadcastReceiver, mIntentFilter);
             scanWifi.run();
         }
 
-        public boolean saveFile(Context context, String mytext){
+        public boolean saveFile(Context context, String mytext, String fpType)
+        {
             Log.i("FILE_WRITE", "SAVING");
             try {
                 String MEDIA_MOUNTED = "mounted";
@@ -376,7 +432,7 @@ public class Fingerprinting extends AppCompatActivity
                         dir.mkdirs();
                     }
 
-                    File outFile = new File(dir, "fingerprintData.txt");
+                    File outFile = new File(dir, ACTIVE_FILE_NAME + fpType + ".txt");
 
                     //FileOutputStream fos = new FileOutputStream(outFile);
 
@@ -401,6 +457,16 @@ public class Fingerprinting extends AppCompatActivity
 
     class SendToServer extends AsyncTask<ArrayList<JSONObject>, Void, Void>
     {
+        private ProgressDialog serverDialog;
+
+        @Override
+        protected void onPreExecute()
+        {
+            super.onPreExecute();
+            serverDialog = ProgressDialog.show(Fingerprinting.this, "Syncing", "Sending to server...", true);
+            Toast.makeText(Fingerprinting.this, "Sending to server...", Toast.LENGTH_SHORT).show();
+            //mProgressDialog.setMessage("Sending to server...");
+        }
 
         @Override
         protected Void doInBackground(ArrayList<JSONObject>... params)
@@ -418,6 +484,7 @@ public class Fingerprinting extends AppCompatActivity
         @Override
         protected void onPostExecute(Void v)
         {
+            serverDialog.dismiss();
             Toast.makeText(Fingerprinting.this, "Sent to Server!", Toast.LENGTH_SHORT).show();
             mProgressDialog.dismiss();
         }

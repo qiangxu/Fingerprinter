@@ -17,11 +17,6 @@
     </item>
 
     <item
-        android:id="@+id/action_settings"
-        android:orderInCategory="100"
-        android:title="@string/action_settings"
-        app:showAsAction="never"/>
-    <item
         android:id="@+id/reset_fingerprints"
         android:title="Reset Fingerprints File"
         />
@@ -38,5 +33,15 @@
         android:id="@+id/enable_wifi"
         android:checkable="true"
         android:title="Enable WiFi"
+        />
+    <item
+        android:id="@+id/enable_send_to_server"
+        android:checkable="true"
+        android:title="Send to Server"
+        />
+    <item
+        android:id="@+id/enable_file_write"
+        android:checkable="true"
+        android:title="Write to File"
         />
 </menu>
