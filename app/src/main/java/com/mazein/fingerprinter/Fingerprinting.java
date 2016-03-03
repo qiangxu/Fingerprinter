@@ -9,6 +9,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.net.Uri;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
@@ -18,6 +21,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -40,7 +44,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 
-public class Fingerprinting extends AppCompatActivity
+public class Fingerprinting extends AppCompatActivity implements SensorEventListener
 {
     private static final String LOG_TAG = "FP";
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
@@ -125,7 +129,7 @@ public class Fingerprinting extends AppCompatActivity
         WebSettings mapWebSettings = mapWebView.getSettings();
         mapWebSettings.setJavaScriptEnabled(true);
         mapWebView.addJavascriptInterface(new WebAppInterface(this), "Android");
-        mapWebView.loadUrl("file:///android_asset/floor_maps/F.html");
+        //mapWebView.loadUrl("file:///android_asset/floor_maps/F.html");
     }
 
     @Override
@@ -136,7 +140,7 @@ public class Fingerprinting extends AppCompatActivity
         return true;
     }
 
-    private boolean sendFileToServer()
+    private boolean emailFingerprintFiles()
     {
         File dir = new File(Environment.getExternalStorageDirectory(), "MazeIn Fingerprints");
         if (!dir.exists())
@@ -145,18 +149,69 @@ public class Fingerprinting extends AppCompatActivity
             Toast.makeText(Fingerprinting.this, "Folder doesn't exist!", Toast.LENGTH_SHORT).show();
             return false;
         }
-        File outFile = new File(dir, ACTIVE_FILE_NAME);
-        if (!outFile.exists())
+        File wifiFile = new File(dir, ACTIVE_FILE_NAME + "wifi.txt");
+        File magFile = new File(dir, ACTIVE_FILE_NAME + "magnetic.txt");
+        if (!wifiFile.exists())
         {
-            Toast.makeText(Fingerprinting.this, "File missing!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(Fingerprinting.this, "WiFi file missing!", Toast.LENGTH_SHORT).show();
             return false;
         }
-        Uri U = Uri.fromFile(outFile);
-        Intent i = new Intent(Intent.ACTION_SEND);
+        if (!magFile.exists())
+        {
+            Toast.makeText(Fingerprinting.this, "Magnetic file missing!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        ArrayList<Uri> uris = new ArrayList<Uri>();
+        uris.add(Uri.fromFile(wifiFile));
+        uris.add(Uri.fromFile(magFile));
+
+        Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        String timestamp = (DateFormat.format("dd-MM-yy hh:mm:ss", new java.util.Date()).toString());
+        i.putExtra(Intent.EXTRA_SUBJECT, ACTIVE_FILE_NAME + "Fingerprints" +
+                "_" + timestamp);
+
         i.setType("text/plain");
-        i.putExtra(Intent.EXTRA_STREAM, U);
+        i.putExtra(Intent.EXTRA_STREAM, uris);
         Toast.makeText(Fingerprinting.this, "Sending " + ACTIVE_FILE_NAME, Toast.LENGTH_SHORT).show();
-        startActivity(Intent.createChooser(i, "Email:"));
+        startActivity(Intent.createChooser(i, "Sending multiple attachments"));
+        return false;
+    }
+
+    public boolean touchFingerprintFiles(Context context)
+    {
+        Log.i("TOUCH_FILES", "Touching...");
+        String MEDIA_MOUNTED = "mounted";
+        String diskState = Environment.getExternalStorageState();
+        if (diskState.equals(MEDIA_MOUNTED))
+        {
+            File dir = new File(Environment.getExternalStorageDirectory(), "MazeIn Fingerprints");
+            if (!dir.exists())
+            {
+                dir.mkdirs();
+            }
+            File wifiFile = new File(dir, ACTIVE_FILE_NAME + "wifi.txt");
+            File magFile = new File(dir, ACTIVE_FILE_NAME + "magnetic.txt");
+
+            BufferedWriter wifiOut = null;
+            BufferedWriter magOut = null;
+
+            try
+            {
+                wifiOut = new BufferedWriter(new FileWriter(wifiFile, true));
+                magOut = new BufferedWriter(new FileWriter(magFile, true));
+                magOut.flush();
+                wifiOut.flush();
+                magOut.close();
+                wifiOut.close();
+            } catch (IOException e)
+            {
+                e.printStackTrace();
+                return false;
+            }
+            Toast.makeText(Fingerprinting.this, "Files touched successfully...",
+                    Toast.LENGTH_SHORT).show();
+            return true;
+        }
         return false;
     }
 
@@ -169,13 +224,26 @@ public class Fingerprinting extends AppCompatActivity
             Toast.makeText(Fingerprinting.this, "Folder doesn't exist!", Toast.LENGTH_SHORT).show();
             return false;
         }
-        File outFile = new File(dir, ACTIVE_FILE_NAME);
-        if (!outFile.exists())
+        File wifiFile = new File(dir, ACTIVE_FILE_NAME + "wifi.txt");
+        File magFile = new File(dir, ACTIVE_FILE_NAME + "magnetic.txt");
+        if (!wifiFile.exists())
         {
-            Toast.makeText(Fingerprinting.this, "File missing!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(Fingerprinting.this, "WiFi missing!", Toast.LENGTH_SHORT).show();
             return false;
         }
-        outFile.delete();
+        else
+        {
+            wifiFile.delete();
+        }
+        if (!magFile.exists())
+        {
+            Toast.makeText(Fingerprinting.this, "Magnetic missing!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        else
+        {
+            magFile.delete();
+        }
         Toast.makeText(Fingerprinting.this, ACTIVE_FILE_NAME + " Deleted!", Toast.LENGTH_SHORT).show();
         return false;
     }
@@ -186,38 +254,27 @@ public class Fingerprinting extends AppCompatActivity
 
         if (id == R.id.send_fingerprints)
         {
-            return sendFileToServer();
+            return emailFingerprintFiles();
         }
         else if(id == R.id.reset_fingerprints)
         {
-            File dir = new File(Environment.getExternalStorageDirectory(), "MazeIn Fingerprints");
-            if(!dir.exists())
-            {
-                dir.mkdirs();
-                Toast.makeText(Fingerprinting.this, "Folder doesn't exist!", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-            File outFile = new File(dir, ACTIVE_FILE_NAME);
-            if(!outFile.exists())
-            {
-                Toast.makeText(Fingerprinting.this, "File missing!", Toast.LENGTH_SHORT).show();
-                return false;
-            }
-            outFile.delete();
-            Toast.makeText(Fingerprinting.this, ACTIVE_FILE_NAME + " Deleted!", Toast.LENGTH_SHORT).show();
+            return resetFingerprintsFile();
         }
         else if (id == R.id.f_menu_button)
         {
             mapWebView.loadUrl("file:///android_asset/floor_maps/F.html");
-            ACTIVE_FILE_NAME = "F_fingerprints";
+            ACTIVE_FILE_NAME = "F_fingerprints_";
             Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME, Toast.LENGTH_SHORT).show();
+            touchFingerprintFiles(getApplicationContext());
         }
         else if (id == R.id.s12_menu_button)
         {
             mapWebView.loadUrl("file:///android_asset/floor_maps/S12.html");
-            ACTIVE_FILE_NAME = "S12_fingerprints";
+            ACTIVE_FILE_NAME = "S12_fingerprints_";
             Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME,
                     Toast.LENGTH_SHORT).show();
+            touchFingerprintFiles(getApplicationContext());
+
         }
         else if (id == R.id.enable_magnetic)
         {
@@ -304,6 +361,18 @@ public class Fingerprinting extends AppCompatActivity
             e.printStackTrace();
         }
 
+
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event)
+    {
+
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy)
+    {
 
     }
 
