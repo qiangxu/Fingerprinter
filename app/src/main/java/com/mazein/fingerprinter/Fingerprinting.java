@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.net.Uri;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
@@ -47,6 +48,20 @@ import java.util.ArrayList;
 public class Fingerprinting extends AppCompatActivity implements SensorEventListener
 {
     private static final String LOG_TAG = "FP";
+    private static final String SERVER_BASE_URL = "http://mazein.herokuapp.com/";
+
+    private static final String WIFI_SERVER_CONTROLLER = "finger_prints";
+    private static final String MAGNETIC_SERVER_CONTROLLER = "magnetics";
+
+    private static final String WIFI_SERVER_COMMIT = "Create Finger print";
+    private static final String MAGNETIC_SERVER_COMMIT = "Create Magnetic";
+
+    private static final String WIFI_SERVER_FP_KEY = "finger_print";
+    private static final String MAGNETIC_SERVER_FP_KEY = "magnetic";
+
+    private static final String WIFI_SERVER_ROUTE = "finger_prints.json";
+    private static final String MAGNETIC_SERVER_ROUTE = "magnetics.json";
+
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
     private static final int PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
     private static boolean WIFI_ENABLED = false;
@@ -55,19 +70,31 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
     private static boolean FILE_WRITE_ENABLED = false;
     private static String ACTIVE_FILE_NAME = "log.txt";
 
+
     private WebView mapWebView;
     private ProgressDialog mProgressDialog;
     private WifiManager mWifiManager;
     private IntentFilter mIntentFilter;
+    private SensorManager mSensorManager;
+    private Sensor mMagneticSensor;
     private BroadcastReceiver mBroadcastReceiver;
     private ArrayList<ScanResult> mScanResults;
 
+    private double[] magneticReadings = new double[3];
+
     @Override
-    public void onPause()
+    protected void onPause()
     {
+        mSensorManager.unregisterListener(this);
         super.onPause();
     }
 
+    @Override
+    protected void onResume()
+    {
+        mSensorManager.registerListener(this, mMagneticSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        super.onResume();
+    }
     @Override
     public void onSaveInstanceState(Bundle outState)
     {
@@ -82,22 +109,22 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
         mapWebView.restoreState(savedInstanceState);
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState)
+    private void checkPermissions()
     {
-        super.onCreate(savedInstanceState);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
             // Android M Permission check
-            if (this.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (this.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            {
                 final AlertDialog.Builder builder = new AlertDialog.Builder(this);
                 builder.setTitle("This app needs location access");
                 builder.setMessage("Please grant location access so this app can scan for WiFi.");
                 builder.setPositiveButton(android.R.string.ok, null);
-                builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                builder.setOnDismissListener(new DialogInterface.OnDismissListener()
+                {
                     @TargetApi(Build.VERSION_CODES.M)
-                    public void onDismiss(DialogInterface dialog) {
+                    public void onDismiss(DialogInterface dialog)
+                    {
                         requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_COARSE_LOCATION);
                     }
                 });
@@ -120,10 +147,22 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                 builder.show();
             }
         }
-
+    }
+    @Override
+    protected void onCreate(Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+        checkPermissions();
         setContentView(R.layout.activity_main);
 
         mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+
+        if (mSensorManager.getSensorList(Sensor.TYPE_MAGNETIC_FIELD).size() != 0)
+        {
+            mMagneticSensor = mSensorManager.getSensorList(Sensor.TYPE_MAGNETIC_FIELD).get(0);
+            mSensorManager.registerListener(this, mMagneticSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        }
 
         mapWebView =(WebView) findViewById(R.id.webView);
         WebSettings mapWebSettings = mapWebView.getSettings();
@@ -167,7 +206,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
 
         Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE);
         String timestamp = (DateFormat.format("dd-MM-yy hh:mm:ss", new java.util.Date()).toString());
-        i.putExtra(Intent.EXTRA_SUBJECT, ACTIVE_FILE_NAME + "Fingerprints" +
+        i.putExtra(Intent.EXTRA_SUBJECT, ACTIVE_FILE_NAME +
                 "_" + timestamp);
 
         i.setType("text/plain");
@@ -274,7 +313,6 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME,
                     Toast.LENGTH_SHORT).show();
             touchFingerprintFiles(getApplicationContext());
-
         }
         else if (id == R.id.enable_magnetic)
         {
@@ -282,6 +320,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             MAGNETIC_ENABLED = item.isChecked();
             Toast.makeText(Fingerprinting.this, "Magnetic Fingerprints: " + Boolean.toString(MAGNETIC_ENABLED)
                     , Toast.LENGTH_SHORT).show();
+            return true;
         }
 
         else if (id == R.id.enable_wifi)
@@ -290,6 +329,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             WIFI_ENABLED = item.isChecked();
             Toast.makeText(Fingerprinting.this, "WiFi Fingerprints: " + Boolean.toString(WIFI_ENABLED)
                     , Toast.LENGTH_SHORT).show();
+            return true;
         }
         else if (id == R.id.enable_send_to_server)
         {
@@ -297,6 +337,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             SERVER_ENABLED = item.isChecked();
             Toast.makeText(Fingerprinting.this, "Sync with Server: " + Boolean.toString(SERVER_ENABLED)
                     , Toast.LENGTH_SHORT).show();
+            return true;
         }
         else if (id == R.id.enable_file_write)
         {
@@ -304,11 +345,13 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             FILE_WRITE_ENABLED = item.isChecked();
             Toast.makeText(Fingerprinting.this, "Writing to: " + Boolean.toString(FILE_WRITE_ENABLED)
                     , Toast.LENGTH_SHORT).show();
+            return true;
         }
         return false;
     }
 
-    private void makePostRequest(ArrayList<JSONObject> allScanResults) throws IOException
+    private void makePostRequest(ArrayList<JSONObject> allScanResults, String pPath,
+                                 String pController, String pCommit, String fpKey) throws IOException
     {
         try
         {
@@ -316,12 +359,12 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             for (JSONObject finger_print : allScanResults)
             {
                 JSONObject fingerprintJson = new JSONObject();
-                fingerprintJson.put("commit", "Create Finger print");
+                fingerprintJson.put("commit", pCommit);// Create Magnetic
                 fingerprintJson.put("action", "create");
-                fingerprintJson.put("controller", "finger_prints");
-                fingerprintJson.put("finger_print", finger_print);
+                fingerprintJson.put("controller", pController);// magnetic
+                fingerprintJson.put(fpKey, finger_print);// magnetic
 
-                HttpURLConnection con = (HttpURLConnection) (new URL("https://mazein.herokuapp.com/finger_prints.json").openConnection());
+                HttpURLConnection con = (HttpURLConnection) (new URL(SERVER_BASE_URL + pPath).openConnection());
                 con.setDoOutput(true);
                 con.setDoInput(true);
                 con.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
@@ -365,9 +408,14 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
     }
 
     @Override
-    public void onSensorChanged(SensorEvent event)
+    public void onSensorChanged(SensorEvent e)
     {
-
+        if (e.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+        {
+            magneticReadings[0] = (double) e.values[0];
+            magneticReadings[1] = (double) e.values[1];
+            magneticReadings[2] = (double) e.values[2];
+        }
     }
 
     @Override
@@ -405,19 +453,96 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
         @JavascriptInterface
         public void initializeFingerprinting(final String place_id, final float startX, final float startY)
         {
+            if (!WIFI_ENABLED && !MAGNETIC_ENABLED)
+            {
+                AlertDialog alertDialog = new AlertDialog.Builder(Fingerprinting.this).create();
+                alertDialog.setTitle("Action Required");
+                alertDialog.setMessage("Please enable WiFi or Magnetic\n" +
+                        "fingerprint collection");
+                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                        new DialogInterface.OnClickListener()
+                        {
+                            public void onClick(DialogInterface dialog, int which)
+                            {
+                                dialog.dismiss();
+                            }
+                        });
+                alertDialog.show();
+                return;
+            }
+            if (!SERVER_ENABLED && !FILE_WRITE_ENABLED)
+            {
+                AlertDialog alertDialog = new AlertDialog.Builder(Fingerprinting.this).create();
+                alertDialog.setTitle("Action Required");
+                alertDialog.setMessage("Please enable Send to Server\n" +
+                        "or Write to File to continue");
+                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                        new DialogInterface.OnClickListener()
+                        {
+                            public void onClick(DialogInterface dialog, int which)
+                            {
+                                dialog.dismiss();
+                            }
+                        });
+                alertDialog.show();
+                return;
+            }
+
             if (WIFI_ENABLED)
-            {
                 initializeWifiScan(place_id, startX, startY);
-            }
+
             if (MAGNETIC_ENABLED)
-            {
                 initializeMagnetic(place_id, startX, startY);
-            }
         }
 
         public void initializeMagnetic(final String place_id, final float startX, final float startY)
         {
+            mProgressDialog = ProgressDialog.show(Fingerprinting.this, "Magnetic Scan",
+                    "Scan at: \n" + String.valueOf(startX) + ", " + String.valueOf(startY), true);
 
+            JSONObject magneticFingerprint = new JSONObject();
+            double magnitude = Math.sqrt(
+                    (magneticReadings[0] * magneticReadings[0])
+                            + (magneticReadings[1] * magneticReadings[1])
+                            + (magneticReadings[2] * magneticReadings[2])
+            );
+            try
+            {
+                magneticFingerprint.put("place_id", place_id);
+                magneticFingerprint.put("xcoord", startX);
+                magneticFingerprint.put("ycoord", startY);
+                magneticFingerprint.put("x", magneticReadings[0]);
+                magneticFingerprint.put("y", magneticReadings[1]);
+                magneticFingerprint.put("z", magneticReadings[2]);
+                magneticFingerprint.put("magnitude", magnitude);
+                magneticFingerprint.put("angle", 90.0);
+                // TODO: Change inclination angle
+            } catch (JSONException e)
+            {
+                e.printStackTrace();
+                Log.e("MAGNETIC", "Json Error");
+            }
+            ArrayList<JSONObject> allMagneticFPs = new ArrayList<>();
+            allMagneticFPs.add(magneticFingerprint);
+
+            if (FILE_WRITE_ENABLED)
+            {
+                saveFile(getApplicationContext(), magneticFingerprint.toString(), "magnetic");
+            }
+            if (SERVER_ENABLED)
+            {
+                new SendToServer(MAGNETIC_SERVER_ROUTE,
+                        MAGNETIC_SERVER_CONTROLLER,
+                        MAGNETIC_SERVER_COMMIT,
+                        MAGNETIC_SERVER_FP_KEY).execute(allMagneticFPs);
+            }
+            else
+            {
+                mProgressDialog.dismiss();
+            }
+
+
+            Toast.makeText(Fingerprinting.this, magneticFingerprint.toString(), Toast.LENGTH_SHORT).show();
         }
 
         @JavascriptInterface
@@ -449,6 +574,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                             JSONObject finger_print = new JSONObject();
                             try
                             {
+                                // TODO: Add place_id when Server is fixed
                                 //finger_print.put("place_id", place_id);
                                 finger_print.put("xcoord", startX);
                                 finger_print.put("ycoord", startY);
@@ -465,16 +591,20 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                             Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
                             //osw.write("{" + startX + "," + startY + ": " + result.toString());
                             if (FILE_WRITE_ENABLED)
-                            {
                                 saveFile(context, finger_print.toString(), "wifi");
-                            }
+
                         }
                     if (SERVER_ENABLED)
                     {
-                        new SendToServer().execute(allScanResults);
+                        new SendToServer(WIFI_SERVER_ROUTE,
+                                WIFI_SERVER_CONTROLLER,
+                                WIFI_SERVER_COMMIT,
+                                WIFI_SERVER_FP_KEY).execute(allScanResults);
                     }
                     else
                     {
+                        // Dismiss Progress Dialog since it won't be dismessed
+                        // from the onPostExecute method after sending to server.
                         mProgressDialog.dismiss();
                     }
                     mWifiManager.startScan();
@@ -506,7 +636,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                     //FileOutputStream fos = new FileOutputStream(outFile);
 
                     BufferedWriter out = new BufferedWriter(new FileWriter(outFile, true));
-                    out.write(mytext);
+                    out.write(mytext + "\n");
                     out.flush();
                     out.close();
 
@@ -524,9 +654,22 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
 
     }
 
-    class SendToServer extends AsyncTask<ArrayList<JSONObject>, Void, Void>
+    private class SendToServer extends AsyncTask<ArrayList<JSONObject>, Void, Void>
     {
         private ProgressDialog serverDialog;
+        private String requestPath;
+        private String controllerPath;
+        private String commitMsg;
+        private String fpKey;
+
+        public SendToServer(String reqP, String controllerP, String commitMsgP, String fpKeyP)
+        {
+            this.requestPath = reqP;
+            this.controllerPath = controllerP;
+            this.commitMsg = commitMsgP;
+            this.fpKey = fpKeyP;
+        }
+
 
         @Override
         protected void onPreExecute()
@@ -542,7 +685,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
         {
             try
             {
-                makePostRequest(params[0]);
+                makePostRequest(params[0], requestPath, controllerPath, commitMsg, fpKey);
             } catch (IOException e)
             {
                 e.printStackTrace();
