@@ -20,6 +20,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.format.DateFormat;
@@ -73,6 +74,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
 
     private WebView mapWebView;
     private ProgressDialog mProgressDialog;
+    private ProgressDialog magneticProgressDialog;
     private WifiManager mWifiManager;
     private IntentFilter mIntentFilter;
     private SensorManager mSensorManager;
@@ -152,7 +154,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
-        checkPermissions();
+        checkPermissions(); // Check Android M Permissions Dynamically
         setContentView(R.layout.activity_main);
 
         mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
@@ -320,6 +322,8 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             MAGNETIC_ENABLED = item.isChecked();
             Toast.makeText(Fingerprinting.this, "Magnetic Fingerprints: " + Boolean.toString(MAGNETIC_ENABLED)
                     , Toast.LENGTH_SHORT).show();
+            Snackbar.make(mapWebView, "Magnetic Fingerprints: "+ Boolean.toString(MAGNETIC_ENABLED)
+                    , Snackbar.LENGTH_LONG).show();
             return true;
         }
 
@@ -432,6 +436,11 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
      */
 
 
+    // Class responsible for interfacing with the HTML files
+    // Includes methods:
+    //      - initializeWifiScan
+    //      - initializeMagneticScan
+    //      - intializeFingerprinting
     public class WebAppInterface{
         Context mContext;
         /**
@@ -497,7 +506,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
 
         public void initializeMagnetic(final String place_id, final float startX, final float startY)
         {
-            mProgressDialog = ProgressDialog.show(Fingerprinting.this, "Magnetic Scan",
+            magneticProgressDialog= ProgressDialog.show(Fingerprinting.this, "Magnetic Scan",
                     "Scan at: \n" + String.valueOf(startX) + ", " + String.valueOf(startY), true);
 
             JSONObject magneticFingerprint = new JSONObject();
@@ -531,21 +540,20 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             }
             if (SERVER_ENABLED)
             {
-                new SendToServer(MAGNETIC_SERVER_ROUTE,
+                new FingerprintsServerHandler(MAGNETIC_SERVER_ROUTE,
                         MAGNETIC_SERVER_CONTROLLER,
                         MAGNETIC_SERVER_COMMIT,
                         MAGNETIC_SERVER_FP_KEY).execute(allMagneticFPs);
             }
             else
             {
-                mProgressDialog.dismiss();
+                magneticProgressDialog.dismiss();
             }
 
 
-            Toast.makeText(Fingerprinting.this, magneticFingerprint.toString(), Toast.LENGTH_SHORT).show();
+            //Toast.makeText(Fingerprinting.this, magneticFingerprint.toString(), Toast.LENGTH_SHORT).show();
         }
 
-        @JavascriptInterface
         public void initializeWifiScan(final String place_id, final float startX, final float startY)
         {
             int scanNumber = 1;
@@ -570,12 +578,11 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                     ArrayList<JSONObject> allScanResults = new ArrayList<>();
                     for (ScanResult result : mScanResults)
                         {
-                            //Adding stuff to the JSON object finger_print at first
+                            //Adding data to the JSON object finger_print at first
                             JSONObject finger_print = new JSONObject();
                             try
                             {
-                                // TODO: Add place_id when Server is fixed
-                                //finger_print.put("place_id", place_id);
+                                finger_print.put("place_id", place_id);
                                 finger_print.put("xcoord", startX);
                                 finger_print.put("ycoord", startY);
                                 finger_print.put("BSSID", result.BSSID);
@@ -589,17 +596,17 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                                 e.printStackTrace();
                             }
                             Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
-                            //osw.write("{" + startX + "," + startY + ": " + result.toString());
                             if (FILE_WRITE_ENABLED)
                                 saveFile(context, finger_print.toString(), "wifi");
 
                         }
                     if (SERVER_ENABLED)
                     {
-                        new SendToServer(WIFI_SERVER_ROUTE,
+                        new FingerprintsServerHandler(WIFI_SERVER_ROUTE,
                                 WIFI_SERVER_CONTROLLER,
                                 WIFI_SERVER_COMMIT,
                                 WIFI_SERVER_FP_KEY).execute(allScanResults);
+                        mProgressDialog.dismiss();
                     }
                     else
                     {
@@ -654,7 +661,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
 
     }
 
-    private class SendToServer extends AsyncTask<ArrayList<JSONObject>, Void, Void>
+    private class FingerprintsServerHandler extends AsyncTask<ArrayList<JSONObject>, Void, Void>
     {
         private ProgressDialog serverDialog;
         private String requestPath;
@@ -662,7 +669,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
         private String commitMsg;
         private String fpKey;
 
-        public SendToServer(String reqP, String controllerP, String commitMsgP, String fpKeyP)
+        public FingerprintsServerHandler(String reqP, String controllerP, String commitMsgP, String fpKeyP)
         {
             this.requestPath = reqP;
             this.controllerPath = controllerP;
@@ -698,7 +705,6 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
         {
             serverDialog.dismiss();
             Toast.makeText(Fingerprinting.this, "Sent to Server!", Toast.LENGTH_SHORT).show();
-            mProgressDialog.dismiss();
         }
 
     }
