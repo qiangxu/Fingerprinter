@@ -579,26 +579,33 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                     for (ScanResult result : mScanResults)
                         {
                             //Adding data to the JSON object finger_print at first
-                            JSONObject finger_print = new JSONObject();
-                            try
+                            if (result.BSSID.equals(AccessPointMacs.AP1_MAC)
+                                    || result.BSSID.equals(AccessPointMacs.AP2_MAC)
+                                    || result.BSSID.equals(AccessPointMacs.AP3_MAC)
+                                    )
                             {
-                                finger_print.put("place_id", place_id);
-                                finger_print.put("xcoord", startX);
-                                finger_print.put("ycoord", startY);
-                                finger_print.put("BSSID", result.BSSID);
-                                finger_print.put("SSID", result.SSID);
-                                finger_print.put("RSSI", result.level);
-                                finger_print.put("SD", "");
-                                finger_print.put("mac", result.BSSID);
-                                allScanResults.add(finger_print);
-                            } catch (JSONException e)
-                            {
-                                e.printStackTrace();
+                                JSONObject finger_print = new JSONObject();
+                                try
+                                {
+                                    finger_print.put("place_id", place_id);
+                                    finger_print.put("xcoord", startX);
+                                    finger_print.put("ycoord", startY);
+                                    finger_print.put("BSSID", result.BSSID);
+                                    finger_print.put("SSID", result.SSID);
+                                    finger_print.put("RSSI", result.level);
+                                    finger_print.put("SD", "");
+                                    finger_print.put("mac", result.BSSID);
+                                    allScanResults.add(finger_print);
+                                } catch (JSONException e)
+                                {
+                                    e.printStackTrace();
+                                }
+                                Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
+                                if (FILE_WRITE_ENABLED)
+                                {
+                                    saveFile(context, finger_print.toString(), "wifi");
+                                }
                             }
-                            Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
-                            if (FILE_WRITE_ENABLED)
-                                saveFile(context, finger_print.toString(), "wifi");
-
                         }
                     if (SERVER_ENABLED)
                     {
@@ -615,7 +622,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                         mProgressDialog.dismiss();
                     }
                     mWifiManager.startScan();
-                    unregisterReceiver(mBroadcastReceiver);
+                    //unregisterReceiver(mBroadcastReceiver);
                     //saveResults.run();
                 }
             };
