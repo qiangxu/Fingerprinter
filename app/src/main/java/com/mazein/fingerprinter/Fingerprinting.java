@@ -316,13 +316,22 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                     Toast.LENGTH_SHORT).show();
             touchFingerprintFiles(getApplicationContext());
         }
+        else if (id == R.id.hofburg_menu_button)
+        {
+            // TODO: Change link to Vienna's map
+            mapWebView.loadUrl("file:///android_asset/ipsn/index.html");
+            ACTIVE_FILE_NAME = "Hofburg_fingerprints_";
+            Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME,
+                    Toast.LENGTH_SHORT).show();
+            touchFingerprintFiles(getApplicationContext());
+        }
         else if (id == R.id.enable_magnetic)
         {
             item.setChecked(!item.isChecked());
             MAGNETIC_ENABLED = item.isChecked();
             Toast.makeText(Fingerprinting.this, "Magnetic Fingerprints: " + Boolean.toString(MAGNETIC_ENABLED)
                     , Toast.LENGTH_SHORT).show();
-            Snackbar.make(mapWebView, "Magnetic Fingerprints: "+ Boolean.toString(MAGNETIC_ENABLED)
+            Snackbar.make(mapWebView, "Magnetic Fingerprints: " + Boolean.toString(MAGNETIC_ENABLED)
                     , Snackbar.LENGTH_LONG).show();
             return true;
         }
