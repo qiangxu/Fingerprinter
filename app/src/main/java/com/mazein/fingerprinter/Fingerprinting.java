@@ -308,6 +308,13 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME, Toast.LENGTH_SHORT).show();
             touchFingerprintFiles(getApplicationContext());
         }
+        else if (id == R.id.meininger_menu_button)
+        {
+            mapWebView.loadUrl("file:///android_asset/meininger/index.html");
+            ACTIVE_FILE_NAME = "meininger_fingerprints_";
+            Toast.makeText(Fingerprinting.this, "Switched to: " + ACTIVE_FILE_NAME, Toast.LENGTH_SHORT).show();
+            touchFingerprintFiles(getApplicationContext());
+        }
         else if (id == R.id.s12_menu_button)
         {
             mapWebView.loadUrl("file:///android_asset/S12-N3/index.html");
