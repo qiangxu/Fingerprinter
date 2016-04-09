@@ -120,7 +120,7 @@
 			var normalizedLng = Math.floor(e.latlng.lng/5)*5;
 			
            $("#info").text(normalizedLat + "," + normalizedLng);
-           //Android.initializeFingerprinting("2", normalizedLat, normalizedLng);
+           Android.initializeFingerprinting("2", normalizedLat, normalizedLng);
            L.marker(new L.LatLng(normalizedLat + 2.5, normalizedLng + 2.5), {icon: navIcon}).addTo(map);
         });
 

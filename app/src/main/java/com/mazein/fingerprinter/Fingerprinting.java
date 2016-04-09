@@ -554,6 +554,20 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
             //Toast.makeText(Fingerprinting.this, magneticFingerprint.toString(), Toast.LENGTH_SHORT).show();
         }
 
+        private String stringify(double[] arr, float startX, float startY)
+        {
+            StringBuilder sb = new StringBuilder();
+            for(double d:arr)
+            {
+                sb.append(d);
+                sb.append(",");
+            }
+            sb.append(startX);
+            sb.append(",");
+            sb.append(startY);
+            return  sb.toString();
+        }
+
         public void initializeWifiScan(final String place_id, final float startX, final float startY)
         {
             int scanNumber = 1;
@@ -576,6 +590,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                             .getScanResults();
 
                     ArrayList<JSONObject> allScanResults = new ArrayList<>();
+                    double[] rssiVector = new double[3];
                     for (ScanResult result : mScanResults)
                         {
                             //Adding data to the JSON object finger_print at first
@@ -584,6 +599,9 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                                     || result.BSSID.equals(AccessPointMacs.AP3_MAC)
                                     )
                             {
+                                rssiVector[AccessPointMacs.keys.get(result.BSSID)] = result.level;
+                                // JSON Style
+                                /*
                                 JSONObject finger_print = new JSONObject();
                                 try
                                 {
@@ -600,11 +618,13 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                                 {
                                     e.printStackTrace();
                                 }
+                                */
                                 Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
                                 if (FILE_WRITE_ENABLED)
                                 {
-                                    saveFile(context, finger_print.toString(), "wifi");
+                                    saveFile(context, stringify(rssiVector), "wifi");
                                 }
+
                             }
                         }
                     if (SERVER_ENABLED)
@@ -622,7 +642,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                         mProgressDialog.dismiss();
                     }
                     mWifiManager.startScan();
-                    //unregisterReceiver(mBroadcastReceiver);
+                    unregisterReceiver(mBroadcastReceiver);
                     //saveResults.run();
                 }
             };
@@ -648,6 +668,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                     File outFile = new File(dir, ACTIVE_FILE_NAME + fpType + ".txt");
 
                     //FileOutputStream fos = new FileOutputStream(outFile);
+                    //PrintWriter pw =  new PrintWriter(fos);
 
                     BufferedWriter out = new BufferedWriter(new FileWriter(outFile, true));
                     out.write(mytext + "\n");
