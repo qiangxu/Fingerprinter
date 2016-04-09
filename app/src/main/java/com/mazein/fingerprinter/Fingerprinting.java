@@ -638,7 +638,7 @@ public class Fingerprinting extends AppCompatActivity implements SensorEventList
                                 Log.i("RESULT", result.BSSID + " " + result.level + " (" + startX + "," + startY + ")");
                                 if (FILE_WRITE_ENABLED)
                                 {
-                                    saveFile(context, stringify(rssiVector), "wifi");
+                                    saveFile(context, stringify(rssiVector, startX, startY), "wifi");
                                 }
 
                             }
