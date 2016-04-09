@@ -15,6 +15,19 @@
         app:showAsAction="never">
 
     </item>
+    <item
+        android:id="@+id/meininger_menu_button"
+        android:title="Load meininger Map"
+        app:showAsAction="never">
+
+    </item>
+
+    <item
+        android:id="@+id/hofburg_menu_button"
+        android:title="Load Hofburg Map"
+        app:showAsAction="never">
+
+    </item>
 
     <item
         android:id="@+id/reset_fingerprints"
